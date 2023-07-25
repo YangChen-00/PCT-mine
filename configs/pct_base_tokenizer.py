@@ -5,8 +5,8 @@ resume_from = None
 dist_params = dict(backend='nccl')
 workflow = [('train', 1)]
 find_unused_parameters=False
-checkpoint_config = dict(interval=5, create_symlink=False)
-evaluation = dict(interval=5, metric='mAP', save_best='AP')
+checkpoint_config = dict(interval=1, create_symlink=False)
+evaluation = dict(interval=1, metric='mAP', save_best='AP')
 
 optimizer = dict(type='AdamW', lr=1e-2, betas=(0.9, 0.999), weight_decay=0.15,
                  constructor='SwinLayerDecayOptimizerConstructor',
@@ -23,7 +23,7 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=0.001,
     min_lr_ratio=1e-5)
-total_epochs = 50
+total_epochs = 10
 
 log_config = dict(
     interval=100,
@@ -54,7 +54,7 @@ data_cfg = dict(
     vis_thr=0.2,
     use_gt_bbox=True,
     det_bbox_thr=0.0,
-    bbox_file='data/coco/person_detection_results/'
+    bbox_file='/home/chenyang/datasets/coco/person_detection_results/'
     'COCO_val2017_detections_AP_H_56_person.json',
 )
 
@@ -124,9 +124,9 @@ model = dict(
                 dropout=0.0,
             ),
             codebook=dict(
-                token_num=34,
-                token_dim=512,
-                token_class_num=2048,
+                token_num=34, # 用34个token表达一个人体
+                token_dim=512, # token的维度
+                token_class_num=2048, # 码本中token的个数
                 ema_decay=0.9,
             ),
             loss_keypoint=dict(
@@ -202,7 +202,8 @@ val_pipeline = [
 
 test_pipeline = val_pipeline
 
-data_root = 'data/coco'
+data_root = '/home/chenyang/datasets/coco/'
+
 data = dict(
     samples_per_gpu=64,
     workers_per_gpu=2,

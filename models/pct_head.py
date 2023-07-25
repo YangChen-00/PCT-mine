@@ -14,6 +14,7 @@ from mmpose.models.builder import HEADS
 
 from .pct_tokenizer import PCT_Tokenizer
 from .modules import MixerLayer, FCBlock, BasicBlock
+from evaluate.eval import pose_pck_accuracy
 
 
 @HEADS.register_module()
@@ -139,10 +140,14 @@ class PCT_Head(TopdownHeatmapBaseHead):
         if self.stage_pct == "classifier":
             batch_size = x[-1].shape[0]
             cls_feat = self.conv_head[0](self.conv_trans(x[-1]))
-
+            # [bs, c, h, w]
+            
             cls_feat = cls_feat.flatten(2).transpose(2,1).flatten(1)
+            # [bs, c, h, w] -> [bs, h*w, c] -> [bs, c*h*w] 
             cls_feat = self.mixer_trans(cls_feat)
+            # [bs, c*h*w] -> [bs, after_dim]
             cls_feat = cls_feat.reshape(batch_size, self.token_num, -1)
+            # [bs, token_num, after_dim]
 
             for mixer_layer in self.mixer_head:
                 cls_feat = mixer_layer(cls_feat)
@@ -241,3 +246,24 @@ class PCT_Head(TopdownHeatmapBaseHead):
                 normal_init(m, std=0.001, bias=0)
             elif isinstance(m, nn.BatchNorm2d):
                 constant_init(m, 1)
+                
+                
+    def get_accuracy(self, output, target):
+        """Calculate accuracy for keypoint loss.
+        """
+
+        target_weight = target[:, :, -1]
+        target = target[:, :, :-1]
+        
+        # print(target_weight)
+        
+        accuracy = dict()
+        
+        _, avg_acc, _ = pose_pck_accuracy(
+            output.detach().cpu().numpy(),
+            target.detach().cpu().numpy(),
+            # [N,K]维度的true or false，当关节点存在权值时意味着该关节点在GT中visible
+            target_weight.detach().cpu().numpy() > 0) 
+        accuracy['acc_pose'] = float(avg_acc)
+        
+        return accuracy

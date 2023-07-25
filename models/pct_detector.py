@@ -129,6 +129,12 @@ class PCT(BasePose):
         output = None if self.stage_pct == "tokenizer" else self.backbone(img)
         extra_output = self.extra_backbone(img) if self.image_guide else None
 
+        """
+            p_logits - 分类网络输出的logits（only Stage2）
+            p_joints - Decoder得出的关节点坐标（Stage1 and Stage2）
+            g_logits - Encoder得出的最相似token的index（Stage1 and Stage2）
+            e_latent_loss - 计算离最相似的token的相似距离作为e_latent_loss（only Stage1）
+        """
         p_logits, p_joints, g_logits, e_latent_loss = \
             self.keypoint_head(output, extra_output, joints)
 
@@ -147,6 +153,10 @@ class PCT(BasePose):
                 kpt_accs['top%s-acc' % str(topk[i])] \
                     = keypoint_accuracy[i]
             losses.update(kpt_accs)
+            
+            keypoint_accuracy = self.keypoint_head.get_accuracy(
+                p_joints, joints)
+            losses.update(keypoint_accuracy)
         elif self.stage_pct == "tokenizer":
             keypoint_losses = \
                 self.keypoint_head.tokenizer.get_loss(
@@ -159,13 +169,17 @@ class PCT(BasePose):
         
         maxk = max(topk)
         batch_size = target.size(0)
-        _, pred = output.topk(maxk, 1, True, True)
+        # torch.topk(input, k, dim=None, largest=True, sorted=True, out=None) 
+        # - 其中k是保留的k个值，dim在指定的维度进行取最大最小
+        # - largest=True意味着选取最大的，sorted=True是指将返回结果排序
+        # - topk返回的是一个tuple，第一个元素指返回的具体值，第二个元素指返回值的index
+        _, pred = output.topk(maxk, 1, True, True) # 取出最大的前5值
         pred = pred.t()
-        correct = pred.eq(target.reshape(1, -1).expand_as(pred))
+        correct = pred.eq(target.reshape(1, -1).expand_as(pred)) # tensor.eq逐元素判断是否相同，返回boolean
         return [
             correct[:k].reshape(-1).float().sum(0) \
                 * 100. / batch_size for k in topk]
-
+        
     def forward_test(self, img, joints, img_metas, **kwargs):
         """Defines the computation performed at every call when testing."""
         assert img.size(0) == len(img_metas)

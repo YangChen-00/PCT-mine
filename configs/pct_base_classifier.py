@@ -6,7 +6,7 @@ dist_params = dict(backend='nccl')
 workflow = [('train', 1)]
 find_unused_parameters=False
 checkpoint_config = dict(interval=5, create_symlink=False)
-evaluation = dict(interval=5, metric='mAP', save_best='AP')
+evaluation = dict(interval=1, metric='mAP', save_best='AP')
 
 optimizer = dict(type='AdamW', lr=8e-4, betas=(0.9, 0.999), weight_decay=0.05,
                  constructor='SwinLayerDecayOptimizerConstructor',
@@ -23,7 +23,7 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=0.001,
     min_lr_ratio=1e-5)
-total_epochs = 210
+total_epochs = 30
 
 log_config = dict(
     interval=100,
@@ -107,7 +107,7 @@ model = dict(
             dropout=0.0),
         tokenizer=dict(
             guide_ratio=0.5,
-            ckpt="weights/tokenizer/swin_base.pth",
+            ckpt="work_dirs/pct_base_tokenizer/best_AP_epoch_10.pth",
             encoder=dict(
                 drop_rate=0.2,
                 num_blocks=4,
@@ -202,12 +202,12 @@ val_pipeline = [
 
 test_pipeline = val_pipeline
 
-data_root = 'data/coco'
+data_root = '/home/dx/datasets/coco/'
 data = dict(
-    samples_per_gpu=32,
+    samples_per_gpu=64,
     workers_per_gpu=2,
-    val_dataloader=dict(samples_per_gpu=32),
-    test_dataloader=dict(samples_per_gpu=32),
+    val_dataloader=dict(samples_per_gpu=64),
+    test_dataloader=dict(samples_per_gpu=64),
     train=dict(
         type='TopDownCocoDataset',
         ann_file=f'{data_root}/annotations/person_keypoints_train2017.json',
